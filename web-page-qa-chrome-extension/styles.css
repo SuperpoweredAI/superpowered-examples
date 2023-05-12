@@ -1,35 +1,117 @@
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  src: url('./Inter/static/Inter-Regular.ttf');
+}
+
+@font-face {
+  font-family: 'Inter-bold';
+  font-style: normal;
+  font-weight: 700;
+  src: url('./Inter/static/Inter-Bold.ttf');
+}
+
 body {
-    font-family: Arial, sans-serif;
-    width: 300px;
-    padding: 10px;
+  font-family: "Inter";
+  width: 350px;
+  padding: 10px 20px;
+}
+
+h1 {
+  font-family: 'Inter-bold';
+  font-size: 22px;
+  margin-bottom: 10px;
+}
+
+#queryInput {
+  margin-top: 15px;
+  width: 100%;
+  padding: 10px 10px;
+  margin-bottom: 10px;
+
+  height: unset;
+  min-height: 60px;
+  box-sizing: border-box;
+  font-size: 15px;
+  font-family: "Inter";
+  border: 0px;
+  overflow-y: hidden;
+  resize: none;
+  /*background-color: #fff;*/
+  border: 1px solid #AEAEAE;
+  border-radius: 8px;
+
+}
+
+button {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 8px;
+  background-color: #5D24D8;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #865edb;
+}
+
+#resultsContainer {
+  padding-top: 0px;
+}
+
+.resultText {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-family: "Inter";
+  font-size: 14px;
+  line-height: 20px;
+  margin: 0px;
+  padding-top: 0px;
+  padding-bottom: 0px;
+}
+
+/* Add padding when the result text is shown */
+.resultTextShown {
+  padding-top: 25px;
+  padding-bottom: 10px;
+}
+
+/* Loading spinner */
+#loading {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: none;
+}
+
+.spinner {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3498db;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  animation: spin 2s linear infinite;
+  margin: 20px auto;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
   }
-  
-  h1 {
-    font-size: 24px;
-    margin-bottom: 10px;
+  100% {
+    transform: rotate(360deg);
   }
-  
-  #queryInput {
-    width: 100%;
-    padding: 5px;
-    margin-bottom: 10px;
-  }
-  
-  button {
-    width: 100%;
-    padding: 5px;
-    margin-bottom: 10px;
-    background-color: #4caf50;
-    color: white;
-    border: none;
-    cursor: pointer;
-  }
-  
-  button:hover {
-    background-color: #45a049;
-  }
-  
-  #resultsContainer {
-    white-space: pre-wrap;
-    word-wrap: break-word;
-  }
+}
+
+.text {
+  color: white;
+  text-align: center;
+  font-size: 16px;
+}
