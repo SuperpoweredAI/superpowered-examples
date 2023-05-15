@@ -7,7 +7,7 @@ function getHeaders() {
   return { Authorization: `Bearer ${token}` };
 }
 
-function realTimeQuery(query, passages, callback) {
+async function realTimeQuery(query, passages, callback) {
   const payload = {
     query,
     passages,
@@ -16,14 +16,14 @@ function realTimeQuery(query, passages, callback) {
     summarize_results: true,
   };
 
-  fetch(superpoweredApiUrl, {
+  const response = await fetch (superpoweredApiUrl, {
     method: 'POST',
     headers: getHeaders(),
-    body: JSON.stringify(payload),
+    body: JSON.stringify(payload)
   })
-    .then((response) => response.json())
-    .then((data) => callback(data))
-    .catch((error) => console.error('Error:', error));
+
+  const resData = await response.json();
+  callback(resData, response.status);
 }
 
 const textArea = document.getElementById('queryInput');
@@ -61,7 +61,19 @@ document.getElementById('searchButton').addEventListener('click', () => {
 
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     chrome.tabs.sendMessage(tabs[0].id, { action: 'getPageText' }, (response) => {
-      realTimeQuery(query, [response.text], (apiResponse) => {
+      realTimeQuery(query, [response.text], (apiResponse, status) => {
+
+        // Check specifically for a 500 error, which typically means the api key and/or secret are invalid
+        if (status === 500) {
+          alert('Error: Please make sure your API key and secret are valid')
+          document.getElementById('loading').style.display = 'none';
+          return;
+        } else if (status !== 200) {
+          // If the status is not 200 or 500, then we just show a generic error message
+          alert("Error: We couldn't process your request at this time. Please try again later.")
+          document.getElementById('loading').style.display = 'none';
+          return;
+        }
         
         // Add the resultTextShown class to the result text element in order to add the correct padding (kind of a crude way of doing this)
         const resultTextElement = document.getElementById('resultText');
