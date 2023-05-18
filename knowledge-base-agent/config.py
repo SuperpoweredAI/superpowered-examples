@@ -1,15 +1,30 @@
-from superpowered import create_knowledge_base, get_knowledge_base
+"""
+You'll need to set the following environment variables:
+- OPENAI_API_KEY
+- SUPERPOWERED_API_KEY_ID
+- SUPERPOWERED_API_KEY_SECRET
+"""
 
-knowledge_base_names = ["Investment Advisers Act of 1940"]
-long_term_memory_store_name = "Chatbot memory"
+# add at least one KB ID here - this is what the agent will have access to
+knowledge_base_ids = []
+
+# long-term memory
 has_long_term_memory = True
-human_prefix = "Zach"
-ai_name = "Samantha"
-mqsc = True # make query self contained
+long_term_memory_store_id = "" # ID of the knowledge base to store the chat messages
 
-# create a knowledge base to store the messages if it doesn't already exist
-def initialize_long_term_memory():
-    try:
-        get_knowledge_base(long_term_memory_store_name)
-    except:
-        create_knowledge_base(title=long_term_memory_store_name)
+# parameters
+human_prefix = "Zach" # name of the human user
+ai_name = "Samantha" # name of the AI agent - can be whatever you want
+pickle_chat_history = False # if True, chat history will be saved to a pickle file and loaded from the pickle file on subsequent runs
+verbose = False
+
+model_spec = {
+    "ai_name": ai_name,
+    "llm_provider": "openai",
+    "llm_model_name": "gpt-3.5-turbo", # "gpt-3.5-turbo" and "gpt-4" are the only supported models right now
+    "system_message": "You are a good chatbot.", # message to send to the AI agent at the beginning of each conversation
+    "temperature": "dynamic",
+    "max_tokens": 1000, # max tokens per response
+    "tool_names": ["Knowledge Bases"], # "Knowledge Bases"
+    "max_iterations": 1, # max number of times the agent can take an action (search a Knowledge Base) in a single turn
+}

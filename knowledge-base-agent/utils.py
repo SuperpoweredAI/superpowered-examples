@@ -8,7 +8,6 @@ def openai_api_call(prompt: str, model_name: str, temperature: float, max_tokens
         openai.api_key = os.getenv("OPENAI_API_KEY")
         user_input_message = {"role": "user", "content": prompt}
         messages = [user_input_message]
-        print (f"{model_name}\n\n{messages}\n\n{max_tokens}\n\n{temperature}")
         response = openai.ChatCompletion.create(
             model=model_name,
             messages=messages,
@@ -58,7 +57,7 @@ def set_abilities(input: str, verbose: bool = False):
     - ideally input is an expanded human input, but the non-expanded version will work too
     """
 
-    abilities_str = get_required_abilities(input, verbose=False)
+    abilities_str = get_required_abilities(input, verbose=verbose)
 
     if verbose:
         print(f"LLM OUTPUT: {abilities_str}")
@@ -177,8 +176,6 @@ def make_query_self_contained(chat_history_list: list, input_list: list, verbose
     prompt = MQSC_PROMPT.format(chat_history=chat_history, input=input)
     if verbose:
         print(prompt)
-    #llm = OpenAI(model_name="text-davinci-003", temperature=0.0, max_tokens=300) # we do need Davinci here
-    #llm_output = llm(prompt).strip()
     llm_output = openai_api_call(prompt, model_name="gpt-3.5-turbo", temperature=0.0, max_tokens=300)
     
     # handle the possibility that the LLM returns an empty string

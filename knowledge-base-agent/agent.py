@@ -82,7 +82,7 @@ def make_llm_call(llm_provider: str, model_name: str, temperature: float, max_to
             openai.api_key = os.getenv("OPENAI_API_KEY")
             user_input_message = {"role": "user", "content": prompt}
             messages = [get_system_message(system_message_content)] + chat_history_messages + [user_input_message]
-            print (f"{model_name}\n\n{messages}\n\n{max_tokens}\n\n{temperature}")
+            if verbose: print (f"{model_name}\n\n{messages}\n\n{max_tokens}\n\n{temperature}")
             response = openai.ChatCompletion.create(
                 model=model_name,
                 messages=messages,
@@ -110,15 +110,15 @@ def make_llm_call(llm_provider: str, model_name: str, temperature: float, max_to
 
 
 class KnowledgeBaseAgent():
-    def __init__(self, model_spec: dict, ai_name: str, api_key: str):
+    def __init__(self, model_spec: dict, api_key: str):
         self.api_key = api_key
-        self.ai_name = ai_name # this is the prefix that the AI uses to identify itself in the chat
+        self.ai_name = model_spec['ai_name'] # this is the prefix that the AI uses to identify itself in the chat
         self.system_message = model_spec['system_message']
-        self.llm_provider = 'openai'  # model_spec['llm_provider']
-        self.model_name = 'gpt-3.5-turbo'  # model_spec['llm_model_name']
+        self.llm_provider = model_spec['llm_provider']
+        self.model_name = model_spec['llm_model_name']
         self.temperature = model_spec['temperature']
         self.max_tokens = model_spec['max_tokens']
-        self.max_iterations = 1 # this is the maximum number of times the agent can take an action in a single turn
+        self.max_iterations = model_spec['max_iterations'] # this is the maximum number of times the agent can take an action in a single turn
 
         # check if this model uses tools
         if model_spec.get('tool_names'):
@@ -131,8 +131,6 @@ class KnowledgeBaseAgent():
 
         # add information about the current date and time
         self.system_message += f'\n\nYou were trained with data up to September 29, 2021 but it is currently {datetime.datetime.utcnow().isoformat()} UTC.'
-        if "Search" in self.tool_names:
-            self.system_message += ' You can use your Search tool to find the most up-to-date information.'
 
     def run(self, input: list[dict], chat_history_list=[], relevant_knowledge="", long_term_memory="", verbose=False):       
         chat_history_str = create_chat_string_from_list(chat_history_list)

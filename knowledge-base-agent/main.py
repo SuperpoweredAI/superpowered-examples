@@ -1,41 +1,20 @@
 import os
 import pickle
 import copy
-from superpowered import query
+from superpowered import query_knowledge_bases
 
 from utils import make_query_self_contained, update_chat_history, create_chat_string_from_list, set_abilities
 from agent import KnowledgeBaseAgent
 from long_term_memory import retrieve_from_long_term_memory, save_to_long_term_memory
-from config import knowledge_base_names, has_long_term_memory, human_prefix, ai_name, mqsc, initialize_long_term_memory
+from config import model_spec, knowledge_base_ids, has_long_term_memory, human_prefix, ai_name, pickle_chat_history, verbose
 
-"""
-You'll need to set the following environment variables:
-- OPENAI_API_KEY
-- SUPERPOWERED_API_KEY_ID
-- SUPERPOWERED_API_KEY_SECRET
-"""
-
-model_spec = {
-    "ai_name": ai_name,
-    "llm_provider": "openai",
-    "llm_model_name": "gpt-3.5-turbo",
-    "system_message": "You are a good chatbot.",
-    "temperature": "dynamic",
-    "max_tokens": 1000,
-    "tool_names": ["Knowledge Bases"], # "Knowledge Bases"
-}
-
-pickle_chat_history = False
-verbose = True
-
-if len(knowledge_base_names) > 0:
+# see if we're using a knowledge base
+if len(knowledge_base_ids) > 0:
     has_knowledge_base = True
 else:
     has_knowledge_base = False
 
-initialize_long_term_memory()
-
-# Load data from Pickle files
+# Load data from Pickle files if needed
 if pickle_chat_history:
     chat_history_list = pickle.load(open("chat_history.pkl", "rb"))    
     if verbose: 
@@ -58,17 +37,14 @@ while True:
 
     human_input = [{"prefix": human_prefix, "content": human_input_content}] # list of messages, where a message is a dict with keys "prefix" and "content"
 
-    # add context to the human input
-    if mqsc:
-        expanded_input = make_query_self_contained(chat_history_list, human_input)
-        if verbose: print(f"\nExpanded input: {expanded_input}\n")
-    else:
-        expanded_input = human_input_content
+    # add context from recent chat history to the human input - helps with retrieval
+    expanded_input = make_query_self_contained(chat_history_list, human_input)
+    if verbose: print(f"\nExpanded input: {expanded_input}\n")
 
-    # dynamic prompt construction - ask the model what abilities it needs to best answer the question
+    # dynamic prompt construction - ask the model what abilities it needs to best respond to the user
     try:
         dpc_params = set_abilities(input=expanded_input)
-        print (f"set_abilities: {dpc_params}")
+        if verbose: print (f"set_abilities: {dpc_params}")
     except Exception as e:
         dpc_params = {
             'need_relevant_knowledge': True,
@@ -76,7 +52,7 @@ while True:
             'temperature': 0.0,
             'tool_list': 'all',
         }
-        print(f"Error in set_abilities: {e}")
+        if verbose: print(f"Error in set_abilities: {e}")
 
     # create a copy of model_spec to modify - this will reset each iteration
     modified_model_spec = copy.deepcopy(model_spec)
@@ -84,15 +60,16 @@ while True:
     # check for dynamic temperature and set it accordingly
     if modified_model_spec['temperature'] == 'dynamic':
         modified_model_spec['temperature'] = dpc_params['temperature']
-        print (f"Setting temperature to {dpc_params['temperature']}")
+        if verbose: print (f"Setting temperature to {dpc_params['temperature']}")
 
     # check for tools needed and set them accordingly
     if dpc_params['tool_list'] != 'all':
         if "Knowledge Bases" in modified_model_spec['tool_names'] and "Knowledge Bases" not in dpc_params['tool_list']:
             modified_model_spec['tool_names'].remove("Knowledge Bases")
     
+    # get relevant knowledge from Superpowered AI Knowledge Bases
     if has_knowledge_base and dpc_params['need_relevant_knowledge']:
-        results = query(query=expanded_input, kb_titles=knowledge_base_names, extract_and_summarize=False)
+        results = query_knowledge_bases(query=expanded_input, knowledge_base_ids=knowledge_base_ids, summarize_results=False)
         relevant_knowledge = "\n\n".join([result["content"] for result in results["ranked_results"]])
     else:
         relevant_knowledge = ""
@@ -103,7 +80,7 @@ while True:
         long_term_memory = ""
 
     # get agent response  
-    agent = KnowledgeBaseAgent(modified_model_spec, ai_name, api_key=os.environ['OPENAI_API_KEY'])
+    agent = KnowledgeBaseAgent(modified_model_spec, api_key=os.environ['OPENAI_API_KEY'])
     ai_output, agent_action_log = agent.run(
         input=human_input, 
         chat_history_list=chat_history_list, 
@@ -112,6 +89,7 @@ while True:
         verbose=verbose,
     )
 
+    # print agent response
     print(f"\n{ai_name}: {ai_output}\n")
 
     # update chat history with agent response
