@@ -1,6 +1,6 @@
 const apiKeyId = '';
 const apiKeySecret = '';
-const superpoweredApiUrl = 'https://api.superpowered.ai/v1/realtime_query';
+const superpoweredApiUrl = 'https://api.superpowered.ai/v1/query_passages';
 
 function getHeaders() {
   const token = btoa(`${apiKeyId}:${apiKeySecret}`);
