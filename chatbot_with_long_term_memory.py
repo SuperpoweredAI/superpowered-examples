@@ -1,17 +1,15 @@
-from superpowered import get_knowledge_base, create_knowledge_base, add_document_to_kb, query
+from superpowered import create_knowledge_base, create_document_via_text, query_knowledge_bases
 import openai
 import os
 
-# set API keys
+# set API keys here, or export them in your shell
 os.environ["OPENAI_API_KEY"] = "YOUR_API_KEY"
 os.environ["SUPERPOWERED_API_KEY_ID"] = "YOUR_API_KEY_ID"
 os.environ["SUPERPOWERED_API_KEY_SECRET"] = "YOUR_API_KEY_SECRET"
 
-# create a knowledge base to store the messages if it doesn't already exist
-try:
-    get_knowledge_base("Chatbot memory")
-except:
-    create_knowledge_base(title="Chatbot memory")
+# create a knowledge base to store the messages
+kb = create_knowledge_base(title="Chatbot memory test")
+knowledge_base_id = kb["id"]
 
 # create the prompt template for the LLM call
 prompt_template = """
@@ -25,7 +23,7 @@ assistant:
 """.strip()
 
 def get_long_term_memory(user_input: str, num_messages=5):
-    results = query(kb_titles=["Chatbot memory"], query=user_input, reranker_top_k=num_messages)
+    results = query_knowledge_bases(knowledge_base_ids=[knowledge_base_id], query=user_input, top_k=num_messages)
     long_term_memory_str = "Here are some messages from your conversation history, in no particular order, that you may find relevant to the current conversation:\n\n" + "\n\n".join([f"{result['content']}" for result in results["ranked_results"]])
     return long_term_memory_str
 
@@ -42,7 +40,7 @@ messages_in_long_term_memory = 0
 
 # start the chat loop
 while True:
-    user_input = input("You: ")
+    user_input = input("User: ")
     if user_input == "exit":
         break
 
@@ -81,5 +79,5 @@ while True:
         oldest_message = chat_messages.pop(0)
         message_prefix = oldest_message["role"]
         formatted_message = message_prefix + ": " + oldest_message["content"]
-        add_document_to_kb(kb_title="Chatbot memory", content=formatted_message, title=f"chat_{messages_in_long_term_memory}")
+        create_document_via_text(knowledge_base_id=knowledge_base_id, content=formatted_message, title=f"chat_{messages_in_long_term_memory}")
         messages_in_long_term_memory += 1
