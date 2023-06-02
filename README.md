@@ -7,6 +7,9 @@ To run these examples, you'll need a Superpowered AI account ([create a free acc
 Most of these examples use the Superpowered Python SDK, which can be installed with pip using `pip install superpowered-sdk`
 
 ## Simple scripts/notebooks
+#### [Domain-specific ChatGPT](domain-specific-ChatGPT)
+This example shows how to build a domain-specific chatbot using the Superpowered AI API and the OpenAI (i.e. ChatGPT) API.
+
 #### [Chatbot with long-term memory](chatbot_with_long_term_memory.py)
 This example shows how to add long-term memory to a chatbot, using Superpowered AI as the long-term memory store.
 
