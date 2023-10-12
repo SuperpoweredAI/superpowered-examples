@@ -1,11 +1,10 @@
 from superpowered import create_chat_thread, get_chat_response
 import json
 import openai
-import tiktoken
 import os
 
 EVALUATION_PROMPT = """
-Your job is to evaluate the performance of an AI-powered question answering system. You will be given a query, a ground truth answer, and the answer given by the AI. Your task is to grade the AI's answer on a scale of 1-10. A score of 0 means the AI's answer is completely wrong. A score of 10 means the AI's answer is completely correct. A score of 5 means the AI's answer is partially correct.
+Your job is to evaluate the performance of an AI-powered question answering system. You will be given a query, a ground truth answer, and the answer given by the AI. Your task is to grade the AI's answer on a scale of 0-10. A score of 0 means the AI's answer is completely wrong. A score of 10 means the AI's answer is completely correct. A score of 5 means the AI's answer is partially correct.
 
 Your response must ONLY be an integer between 0 and 10 (inclusive). Do not include any other text in your response.
 
@@ -25,26 +24,11 @@ AI-GENERATED ANSWER
 GRADE
 """.strip()
 
-SYSTEM_MESSAGE = """
-You are an AI company assistant for a startup called Sourcegraph. You have been paired with a search system that will provide you with relevant information from the company handbook to help you answer user questions. You will see the results of these searches below. Since this is the only information about the company you have access to, if the necessary information to answer the user's question is not contained there, you should tell the user you don't know the answer. You should NEVER make things up just try to provide an answer.
-""".strip()
-
-def openai_api_call(chat_messages: list[dict], model_name: str = "gpt-3.5-turbo", temperature: float = 0.2, max_tokens: int = 1000) -> str:
-    """
-    Function to call the OpenAI API
-    - "gpt-3.5-turbo" or "gpt-4"
-    """
+# we'll use this to run the evaluation prompt
+def openai_api_call(chat_messages: list[dict], model_name: str = "gpt-4", temperature: float = 0.0, max_tokens: int = 1) -> str:
     max_tokens = int(max_tokens)
     temperature = float(temperature)
     assert model_name in ["gpt-3.5-turbo", "gpt-3.5-turbo-16k", "gpt-4"]
-
-    # if using a gpt-3.5-turbo model, check if we need to use the 16k model or the normal 4k model
-    if model_name.startswith("gpt-3.5-turbo"):
-        num_tokens = count_tokens(chat_messages, model_name="gpt-3.5-turbo")
-        if num_tokens + max_tokens > 4000:
-            model_name = "gpt-3.5-turbo-16k"
-        else:
-            model_name = "gpt-3.5-turbo"
 
     # call the OpenAI API
     openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -56,39 +40,21 @@ def openai_api_call(chat_messages: list[dict], model_name: str = "gpt-3.5-turbo"
         request_timeout=120,
     )
     llm_output = response['choices'][0]['message']['content'].strip()
-    
     return llm_output
 
-def count_tokens(chat_messages: list[dict], model_name: str) -> int:
-    """
-    Count the number of tokens in a list of chat messages using tiktoken
-    - only gpt-3.5-turbo and gpt-4 are supported; Anthropic models have 100k context window so no need to count tokens
-    """
-    enc = tiktoken.encoding_for_model(model_name)
-    num_tokens = 0
-    for message in chat_messages:
-        num_tokens += len(enc.encode(message["role"] + " " + message["content"]))
-    return num_tokens
-
 # get the model's predictions for each query in the eval set
-def get_response(query, config):
+def get_response(query: str, config: dict):
     """
-    - config can be "baseline" or "super_stack"
+    - config is a dictionary containing:
+        - "use_rse": whether to use the RSE or not
+        - "kb_id": the ID of the knowledge base to use
+        - "system_message": the system message to use
     """
-    # define the knowledge base to do the eval on
-    kb_id_baseline = "0648a747-6920-4c92-912c-e2b88f9511a8"
-    kb_id_super_stack = "8606a749-80e1-49e2-84b9-368c11d980e9"
-
-    if config == "baseline":
-        use_rse = False
-        kb_id = kb_id_baseline
-    elif config == "super_stack":
-        use_rse = True
-        kb_id = kb_id_super_stack
-    else:
-        raise ValueError(f"Invalid config: {config}")
+    use_rse = config["use_rse"]
+    kb_id = config["kb_id"]
+    system_message = config["system_message"]
     
-    thread_id = create_chat_thread([kb_id], use_rse=use_rse, system_message=SYSTEM_MESSAGE)["id"]
+    thread_id = create_chat_thread([kb_id], use_rse=use_rse, system_message=system_message)["id"] # create a chat thread with the provided config parameters
     chat_response = get_chat_response(thread_id, query)
     chat_response = chat_response["interaction"]["model_response"]["content"]
     return chat_response
@@ -100,17 +66,27 @@ def evaluate_response(query, gt_answer, model_answer):
     response = openai_api_call(chat_messages, model_name="gpt-4", temperature=0.0, max_tokens=1)
     return response
 
-def run_evaluation(eval_set: list[dict], config: str):
+def run_evaluation(eval_set: list[dict], config: dict):
+    """
+    - eval_set is a list of dictionaries, where each dictionary contains:
+        - "query": the query
+        - "gt_answer": the ground truth answer, i.e. what you want the model to output
+    - config is a dictionary containing:
+        - "use_rse": whether to use the RSE or not
+        - "kb_id": the ID of the knowledge base to use
+        - "system_message": the system message to use
+    """
     # run the evaluation
     eval_results = []
     for eval_item in eval_set:
         query = eval_item["query"]
         gt_answer = eval_item["gt_answer"]
-        model_answer = get_response(query, config=config)
+        model_answer = get_response(query, config)
 
         grade = evaluate_response(query, gt_answer, model_answer)
         print(grade)
 
+        # save the results
         eval_results.append({
             "query": query,
             "gt_answer": gt_answer,
@@ -118,8 +94,8 @@ def run_evaluation(eval_set: list[dict], config: str):
             "grade": grade,
         })
 
-    # save eval results to a json file
-    with open(f"eval_results_{config}.json", "w") as f:
+    # export eval results to a json file
+    with open(f"eval_results.json", "w") as f:
         json.dump(eval_results, f, indent=4)
 
 
@@ -167,8 +143,16 @@ eval_set = [
     },
 ]
 
-print ("Running baseline evaluation...")
-run_evaluation(eval_set, "baseline")
+# define the config and run the evaluation
+SYSTEM_MESSAGE = """
+You are an AI company assistant for a startup called Sourcegraph. You have been paired with a search system that will provide you with relevant information from the company handbook to help you answer user questions. You will see the results of these searches below. Since this is the only information about the company you have access to, if the necessary information to answer the user's question is not contained there, you should tell the user you don't know the answer. You should NEVER make things up just try to provide an answer.
+""".strip()
 
-print ("\nRunning super stack evaluation...")
-run_evaluation(eval_set, "super_stack")
+config = {
+    "use_rse": True,
+    "kb_id": "INSERT_KB_ID_HERE",
+    "system_message": SYSTEM_MESSAGE,
+}
+
+print ("\nRunning evaluation...")
+run_evaluation(eval_set, config)
