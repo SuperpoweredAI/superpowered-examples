@@ -4,7 +4,9 @@ This repo contains a collection of examples for working with and building retrie
 
 To run these examples, you'll need a Superpowered AI account ([create a free account here](https://superpowered.ai)) and API keys.
 
-Most of these examples use the Superpowered Python SDK, which can be installed with pip using `pip install superpowered-sdk`
+Some of these examples use the Superpowered Python SDK, which can be installed with pip using `pip install superpowered-sdk`
+
+If you're using the SDK, please make sure you have `SUPERPOWERED_API_KEY_ID` and `SUPERPOWERED_API_KEY_SECRET` set as environment variables or the variables directly via `superpowered.set_api_key()`.
 
 #### [Personal knowledge base Chrome extension](consumer/personal-kb-chrome-extension)
 In this project we build a Chrome extension that runs in the background and uploads the text from every webpage you visit to a Superpowered Knowledge Base (that is private to you). You can then query that Knowledge Base through the Playground or a downstream application and it will have context around every webpage you've visited. This is basically a simple version of [Rewind](https://rewind.ai).

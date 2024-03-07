@@ -1,3 +1,5 @@
 dist/*
 *.egg-info/
 *.pyc
+
+_sourcegraph_company_handbook/*
