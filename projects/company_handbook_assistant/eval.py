@@ -154,7 +154,7 @@ You are an AI company assistant for a startup called Sourcegraph. You have been 
 
 config = {
     "use_rse": True,
-    "kb_id": "1426ba16-3df2-4d54-90b7-008bd86e5d96",
+    "kb_id": "INSERT KNOWLEDGE BASE OUTPUT BY create_kb.py HERE",
     "system_message": SYSTEM_MESSAGE,
 }
 
