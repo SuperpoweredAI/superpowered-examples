@@ -42,28 +42,19 @@ Things you'll need to do before you can deploy your AI SMS Assistant:
     - https://superpowered.ai/
     - Login and click "Account" on the left navigation and then click "Create new API key"
     - Run `aws configure` on the command line to configure AWS credentials and default region.
-4. Save credentials to AWS Systems Manager > Parameter Store as `SecureString` parameters. This is to ensure safety of your API keys.
+4. Make sure you have `jq` enabled to run the `deploy.sh` script: https://jqlang.github.io/jq/download/
 
-Create 4 SSM Parameters corresponding to the following (they can be anything you want, but will need to be referenced in step #6): `TwilioAccountSid`, `TwilioAuthToken`, `SpApiKeyId`, `SpApiKeySecret`
+5. Deploy your SMS Assistant.
 
-```bash
-aws ssm put-parameter \
-    --name  "parameter-name" \
-    --value "parameter-value" \
-    --type SecureString
-```
-
-**NOTE:** The names of these SSM parameters can change as long as the names in the `--parameter-overrides` match.
-
-5. Deploy your SMS Assistant:
+Be sure to pass your secret parameters (as shown below) the first time you run the deployment to make sure the secrets get saved in AWS properly.
 
 ```bash
 sh deploy.sh \ 
     --twilio-phone-number +1XXXXXXXXXX \                # REQUIRED
-    --twilio-account-sid INSERT_TWILIO_ACCOUNT_SID \    # OPTIONAL (will set parameter in AWS)
-    --twilio-auth-token INSERT_TWILIO_AUTH_TOKEN \      # OPTIONAL (will set parameter in AWS)
-    --sp-api-key-id INSERT_SP_API_KEY_ID \              # OPTIONAL (will set parameter in AWS)
-    --sp-api-key-secret INSERT_SP_API_KEY_SECRET        # OPTIONAL (will set parameter in AWS)
+    --twilio-account-sid INSERT_TWILIO_ACCOUNT_SID \    # OPTIONAL (make sure you set this the first time you run the script)
+    --twilio-auth-token INSERT_TWILIO_AUTH_TOKEN \      # OPTIONAL (make sure you set this the first time you run the script)
+    --sp-api-key-id INSERT_SP_API_KEY_ID \              # OPTIONAL (make sure you set this the first time you run the script)
+    --sp-api-key-secret INSERT_SP_API_KEY_SECRET        # OPTIONAL (make sure you set this the first time you run the script)
 ```
 
 This script will perform the following steps:
@@ -96,3 +87,9 @@ Some ideas:
 - A :gear: emoji could be a settings/account indicator
 - A :wrench: emoji could be a way to alter some settings
 - A :wastebasket: emoji to reset chat thread options
+
+
+##### Add a billing workflow when users text the SMS assistant for the first time
+
+One idea is to use Stripe's "Payment Links" feature: https://stripe.com/payments/payment-links
+
