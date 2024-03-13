@@ -1,0 +1,54 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  The Lambda function for the AI Assistant to respond to SMS messages
+
+Parameters:
+  TwilioAccountSidParamName:
+    Type: String
+  TwilioAuthTokenParamName:
+    Type: String
+  SpApiKeyIdParamName:
+    Type: String
+  SpApiKeySecretParamName:
+    Type: String
+
+
+Resources:
+  #######################################
+  # RESPOND TO SMS LAMBDA
+  #   - This lambda function will have its own URL associated with it and will be used as the webhook listener for 
+  #     incoming SMS messages from Twilio.
+  #   - This does not have any authorizer associated with it, so it is open to the public. The lambda function itself 
+  #     should validate the incoming request to ensure it is coming from Twilio.
+  #######################################
+  RespondToSmsLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: Lambda function to respond to incoming SMS messages
+      Handler: response_handler.lambda_handler
+      CodeUri: response_handler/
+      Runtime: python3.11
+      Timeout: 120
+      Environment:
+        Variables:
+          TWILIO_ACCOUNT_SID_PARAM_NAME: !Ref TwilioAccountSidParamName
+          TWILIO_AUTH_TOKEN_PARAM_NAME: !Ref TwilioAuthTokenParamName
+          SP_API_KEY_ID_PARAM_NAME: !Ref SpApiKeyIdParamName
+          SP_API_KEY_SECRET_PARAM_NAME: !Ref SpApiKeySecretParamName
+      FunctionUrlConfig:
+        AuthType: NONE
+      Policies:
+        - SSMParameterReadPolicy:
+            ParameterName: !Ref TwilioAccountSidParamName
+        - SSMParameterReadPolicy:
+            ParameterName: !Ref TwilioAuthTokenParamName
+        - SSMParameterReadPolicy:
+            ParameterName: !Ref SpApiKeyIdParamName
+        - SSMParameterReadPolicy:
+            ParameterName: !Ref SpApiKeySecretParamName
+
+
+Outputs:
+  RespondToSmsLambdaUrl:
+    Value: !GetAtt RespondToSmsLambdaUrl.FunctionUrl
