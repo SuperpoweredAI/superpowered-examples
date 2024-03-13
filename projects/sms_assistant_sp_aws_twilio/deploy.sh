@@ -44,14 +44,6 @@ done
 # set positional arguments in their proper place
 eval set -- "$PARAMS"
 
-
-# set parameter names
-TwilioAccountSidParamName=twilio-account-sid
-TwilioAuthTokenParamName=twilio-auth-token
-SpApiKeyIdParamName=sp-api-key-id
-SpApiKeySecretParamName=sp-api-key-secret
-
-
 # if twilio_phone_number is not set, then exit
 if [ -z "$TWILIO_PHONE_NUMBER" ]; then
     echo "Error: Twilio phone number is required" >&2
@@ -61,6 +53,12 @@ fi
 ###############################
 # SET SSM PARAMETERS IF THEY WERE PASSED IN
 ###############################
+# set parameter names
+TwilioAccountSidParamName=twilio-account-sid
+TwilioAuthTokenParamName=twilio-auth-token
+SpApiKeyIdParamName=sp-api-key-id
+SpApiKeySecretParamName=sp-api-key-secret
+
 # if the other parameters are set, create ssm parameters individually
 if [ -n "$twilio_account_sid" ]; then
     aws ssm put-parameter --name "$TwilioAccountSidParamName" --value "$twilio_account_sid" --type SecureString --overwrite
