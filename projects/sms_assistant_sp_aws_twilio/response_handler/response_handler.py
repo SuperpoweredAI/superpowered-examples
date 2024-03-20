@@ -40,21 +40,39 @@ SP_AUTH = (SP_API_KEY_ID, SP_API_KEY_SECRET)
 
 
 CHAT_SYSTEM_MESSAGE = """\
-You are are responding in an SMS message so please keep your responses short and to the point.
+<SYSTEM INFORMATION>
+Your name is {assistant_name}. If you are asked, you should say that this is your name, even if you think it's something else.
+</SYSTEM INFORMATION>
 
-If you do not have the information you need to respond to a user, please ask for follow up questions."""
+<IMPORTANT FORMATTING>
+Your response will be sent via SMS and it is very important that you keep answers as concise as possible.
+
+Short answers are extremely important. Please keep this in mind no matter what.
+
+Bullet points are encouraged when there are possible solutions but sometimes you might need to respond in multiple short sentences.
+
+It is helpful to include newline breaks regularly to make the response easier to read on a small screen.
+</IMPORTANT FORMATTING>
+"""
 
 
-def create_chat_thread(phone_number: str) -> str:
+def create_chat_thread(phone_number: str, web_search_timeframe_days: int = None, assistant_name: str = 'Alfred') -> str:
     # create the chat thread with some defaults and set supp_id to the phone number
     # this will allow us to get the chat thread by phone number
     payload = {
         'supp_id': phone_number,
-        'model': 'gpt-3.5-turbo',
-        'system_message': CHAT_SYSTEM_MESSAGE,
-        'use_web_search': True,
-        'response_length': 'short',
+        'title': assistant_name,
+        'default_options': {
+            'model': 'claude-3-haiku',
+            'system_message': CHAT_SYSTEM_MESSAGE.format(assistant_name=assistant_name),
+            'use_web_search': True,
+            'response_length': 'short',
+        }
     }
+    if web_search_timeframe_days:
+        payload['default_options']['web_search_config'] = {
+            'timeframe_days': web_search_timeframe_days
+        }
     resp = requests.post(
         url=f'{SP_BASE_URL}/chat/threads',
         json=payload,
@@ -105,17 +123,76 @@ def get_chat_response(thread_id: str, user_input: str) -> str:
     return resp.json()['response']
 
 
-def organize_chat_response(response: str) -> str:
-    web_search_references = ('REFERENCES\n' + '\n'.join(response['interaction']['web_search_results'][i] for i in response['interaction']['web_search_references'])) if response['interaction']['web_search_references'] else ''
-    return response['interaction']['model_response']['content'] + '\n\n' + web_search_references
-
-
 def send_twilio_response(to: str, from_: str, body: str):
     return TWILIO_CLIENT.messages.create(
         to=to,
         from_=from_,
         body=body
     )
+
+
+def get_help_message():
+    return u"""\
+Available commands:
+
+/help | \U00002753 | \U00002754: get this help message
+
+/clear | \U0000274C: reset the conversation settings (besides the assistant name)
+
+/settings | \U00002699: display conversation settings
+
+/timeframe N | \U0001F4C5 N: set the web search timeframe to the last N days
+
+/name: set the name of the assistant"""
+
+
+def delete_chat_thread(thread_id: str):
+    # reset the chat thread
+    resp = requests.delete(
+        url=f'{SP_BASE_URL}/chat/threads/{thread_id}',
+        auth=SP_AUTH
+    )
+    if not resp.ok:
+        raise Exception(f'Error resetting superpowered chat thread: {resp.text}')
+    
+
+def get_chat_thread(thread_id: str):
+    resp = requests.get(
+        url=f'{SP_BASE_URL}/chat/threads/{thread_id}',
+        auth=SP_AUTH
+    )
+    if not resp.ok:
+        raise Exception(f'Error getting superpowered chat thread settings: {resp.text}')
+
+    return resp.json()
+
+
+def update_chat_thread_web_search_timeframe(thread_id: str, timeframe_days: int):
+    resp = requests.patch(
+        url=f'{SP_BASE_URL}/chat/threads/{thread_id}',
+        json={'default_options': {'web_search_config': {'timeframe_days': timeframe_days}}},
+        auth=SP_AUTH
+    )
+    if not resp.ok:
+        raise Exception(f'Error updating superpowered chat thread web search timeframe: {resp.text}')
+
+
+def update_assistant_name(thread_id: str, name: str):
+    resp = requests.patch(
+        url=f'{SP_BASE_URL}/chat/threads/{thread_id}',
+        json={'title': name, 'default_options': {'system_message': CHAT_SYSTEM_MESSAGE.format(assistant_name=name)}},
+        auth=SP_AUTH
+    )
+    if not resp.ok:
+        raise Exception(f'Error updating superpowered chat thread assistant name: {resp.text}')
+
+
+def print_unicode_representation(text):
+    for char in text:
+        code_point = ord(char)
+        # Using '\\U{:08X}' to ensure it works for all characters, including those outside BMP.
+        unicode_string = '\\U{:08X}'.format(code_point)
+        print(unicode_string)
 
 
 def lambda_handler(event, context):
@@ -129,13 +206,13 @@ def lambda_handler(event, context):
     twilio_webhook = parse_qs(body, keep_blank_values=True)
     twilio_webhook = {k: v[0] for k, v in twilio_webhook.items()}
 
-    # webhook url is the url that twilio will send the webhook to (i.e. the url of this lambda function)
+    # validation url is the url that twilio will send the webhook to (i.e. the url of this lambda function)
     url = f"https://{event['headers']['host']}{event['rawPath']}"
 
     if not validator.validate(uri=url, params=twilio_webhook, signature=event['headers'].get('x-twilio-signature')):
         raise Exception('Not authorized to access this endpoint.')
     
-    ############################
+    ############################⚙️
     # WEBHOOK HANDLING
     ############################
     # get the phone number from the webhook
@@ -149,23 +226,87 @@ def lambda_handler(event, context):
     if not thread_id:
         # create a chat thread for this user
         thread_id = create_chat_thread(user_phone_number)
-    
-    ############################
-    # GET API RESPONSE FROM SUPERPOWERED API
-    ############################
-    # get the response from the model
-    model_response = get_chat_response(
-        thread_id=thread_id, 
-        user_input=twilio_webhook['Body']
-    )
+        # send an initial message to the user
+        sms_response = f'Hello! You can view/adjust settings via keywords and emojis.\n\n'
+        sms_response += get_help_message()
+        send_twilio_response(
+            to=user_phone_number,
+            from_=twilio_phone_number,
+            body=sms_response
+        )
 
-    user_response = organize_chat_response(model_response)
+    ############################
+    # DEPENDING ON POSSIBLE FIRST WORD,
+    # DECIDE WHAT ACTION TO TAKE
+    ############################
+    sms_response = ''
+    words = twilio_webhook['Body'].split(' ')
+    first_word = u'{}'.format(words[0]).lower()
+    # sometimes emojis are broken up into multiple characters
+    # in the case of the gearbox / settings emoji, it's broken up into 2 characters
+    first_char = first_word[0]
 
-    # send the response back to the user phone number
-    resp = send_twilio_response(
+    # print(first_word)
+    # print_unicode_representation(first_word)
+
+    ### HELP
+    if first_word in [u'/help', u'\U00002753', u'\U00002754']:
+        # send help message
+        sms_response = get_help_message()
+    ### CLEAR
+    elif first_word in [u'/clear', u'\U0000274C']:
+        # reset the chat thread
+        thread = get_chat_thread(thread_id)
+        assistant_name = thread['title']
+        if len(assistant_name) > 1:
+            assistant_name = assistant_name[1]
+        else:
+            assistant_name = 'Alfred'
+        delete_chat_thread(thread_id)
+        thread_id = create_chat_thread(user_phone_number, assistant_name=assistant_name)
+        sms_response = 'Conversation settings have been reset to defaults.'
+    ### VIEW SETTINGS
+    elif first_word == u'/settings' or first_char == u'\U00002699':
+        thread = get_chat_thread(thread_id)
+        chat_thread_defaults = thread['default_options']
+        assistant_name = thread.get('title', 'Alfred')
+        sms_response = f"**name**: {assistant_name}\n**web search timeframe**: {chat_thread_defaults['web_search_config']['timeframe_days'] if chat_thread_defaults['web_search_config'] else 'all time'}"
+    ### SET TIMEFRAME DAYS
+    elif first_word in [u'/timeframe', u'\U0001F4C5']:
+        try:
+            timeframe_days = int(words[1])
+            update_chat_thread_web_search_timeframe(thread_id, timeframe_days)
+            sms_response = f'Web search timeframe set to {timeframe_days} days.'
+        except:
+            sms_response = 'Invalid timeframe. Please use a number.'
+    ### SET ASSISTANT NAME
+    elif first_word in [u'/name']:
+        try:
+            assistant_name = words[1]
+            update_assistant_name(thread_id, assistant_name)
+            sms_response = f'Assistant name set to {assistant_name}.'
+        except Exception as e:
+            print(e)
+            sms_response = 'Invalid input. Please specify the new name like "/name Alfred".'
+    ### SEND NORMAL SP RESPONSE
+    else:
+        ############################
+        # GET API RESPONSE FROM SUPERPOWERED API
+        ############################
+        # get the response from the model
+        model_response = get_chat_response(
+            thread_id=thread_id, 
+            user_input=twilio_webhook['Body']
+        )
+        sms_response = model_response['interaction']['model_response']['content']
+
+    ############################
+    # SEND RESPONSE BACK TO USER VIA TWILIO
+    ############################
+    send_twilio_response(
         to=user_phone_number,
         from_=twilio_phone_number,
-        body=user_response
+        body=sms_response
     )
 
     return {
