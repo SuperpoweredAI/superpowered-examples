@@ -4,6 +4,9 @@ _Superpowered AI is in a free research beta phase. Please join our Discord serve
 
 **In this demo, we will build an AI assistant with a dedicated phone number (issued via Twilio).**
 
+![alfred-system-diagram](https://github.com/SuperpoweredAI/superpowered-examples/assets/25647677/590e2c81-6aa3-4964-a9b1-540c6b4faea5)
+
+
 **Users simply text the AI's number and an individual  "[chat thread](!https://docs.superpowered.ai/api/rest/index.html#tag/Chat)" will be created and tied to the end-user's phone number using the API's `supp_id` field. No need to maintain chat histories on your own. That is taken care of by Superpowered.**
 
 Feel free to text 844-603-7222 to interact with an AI assistant we've created from the steps outlined below.
