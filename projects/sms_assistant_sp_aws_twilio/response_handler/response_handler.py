@@ -143,7 +143,12 @@ Available commands:
 
 /timeframe N | \U0001F4C5 N: set the web search timeframe to the last N days
 
-/name: set the name of the assistant"""
+/name NAME: set the name of the assistant to NAME
+
+/model MODEL: set the model of the assistant to MODEL. Must be one of `gpt-3.5-turbo`, `claude-3-haiku`, `mixtral`.
+
+/temperature N | \U0001F525 N: set the temperature of the assistant to N. Must be a number between 0 and 1.
+"""
 
 
 def delete_chat_thread(thread_id: str):
@@ -181,6 +186,26 @@ def update_assistant_name(thread_id: str, name: str):
     resp = requests.patch(
         url=f'{SP_BASE_URL}/chat/threads/{thread_id}',
         json={'title': name, 'default_options': {'system_message': CHAT_SYSTEM_MESSAGE.format(assistant_name=name)}},
+        auth=SP_AUTH
+    )
+    if not resp.ok:
+        raise Exception(f'Error updating superpowered chat thread assistant name: {resp.text}')
+
+
+def update_assistant_model(thread_id: str, model: str):
+    resp = requests.patch(
+        url=f'{SP_BASE_URL}/chat/threads/{thread_id}',
+        json={'default_options': {'model': model}},
+        auth=SP_AUTH
+    )
+    if not resp.ok:
+        raise Exception(f'Error updating superpowered chat thread assistant name: {resp.text}')
+
+
+def update_assistant_temperature(thread_id: str, temperature: float):
+    resp = requests.patch(
+        url=f'{SP_BASE_URL}/chat/threads/{thread_id}',
+        json={'default_options': {'temperature': temperature}},
         auth=SP_AUTH
     )
     if not resp.ok:
@@ -270,7 +295,7 @@ def lambda_handler(event, context):
         thread = get_chat_thread(thread_id)
         chat_thread_defaults = thread['default_options']
         assistant_name = thread.get('title', 'Alfred')
-        sms_response = f"**name**: {assistant_name}\n**web search timeframe**: {chat_thread_defaults['web_search_config']['timeframe_days'] if chat_thread_defaults['web_search_config'] else 'all time'}"
+        sms_response = f"**name**: {assistant_name}\n**model**: {chat_thread_defaults['model']}\n**web search timeframe**: {chat_thread_defaults['web_search_config']['timeframe_days'] if chat_thread_defaults['web_search_config'] else 'all time'}\n**temperature**: {round(chat_thread_defaults['temperature'], 2)}"
     ### SET TIMEFRAME DAYS
     elif first_word in [u'/timeframe', u'\U0001F4C5']:
         try:
@@ -288,6 +313,27 @@ def lambda_handler(event, context):
         except Exception as e:
             print(e)
             sms_response = 'Invalid input. Please specify the new name like "/name Alfred".'
+    ### SET MODEL
+    elif first_word in [u'/model']:
+        try:
+            model = words[1].lower()
+            if model not in ['gpt-3.5-turbo', 'claude-3-haiku', 'mixtral']:
+                sms_response = 'Invalid model. Must be one of "gpt-3.5-turbo", "claude-3-haiku", "mixtral".'
+            else:
+                update_assistant_model(thread_id, model)
+                sms_response = f'Assistant model set to {model}.'
+        except Exception as e:
+            print(e)
+            sms_response = 'Invalid model. Must be one of "gpt-3.5-turbo", "claude-3-haiku", "mixtral".'
+    ### SET TEMPERATURE
+    elif first_word in [u'/temperature', u'\U0001F525']:
+        try:
+            temperature = float(words[1])
+            update_assistant_temperature(thread_id, temperature)
+            sms_response = f'Assistant temperature set to {temperature}.'
+        except Exception as e:
+            print(e)
+            sms_response = 'Invalid input. Please specify the new temperature like "/temperature 0.5".'
     ### SEND NORMAL SP RESPONSE
     else:
         ############################
