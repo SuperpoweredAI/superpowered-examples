@@ -1,6 +1,6 @@
 # Superpowered AI SMS Assistant built on AWS (infra) and Twilio (sms)
 
-_Superpowered AI is in a free research beta phase. Please join our Discord server for asking questions, giving feedback, talking about ideas, or just to say hey!: https://discord.com/invite/PD6qE85kch_
+_Please join our Discord server for asking questions, giving feedback, talking about ideas, or just to say hey!: https://discord.com/invite/PD6qE85kch_
 
 **In this demo, we will build an AI assistant with a dedicated phone number (issued via Twilio).**
 
