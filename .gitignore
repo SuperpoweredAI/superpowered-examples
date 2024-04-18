@@ -5,3 +5,5 @@ dist/*
 _sourcegraph_company_handbook/*
 
 .aws-sam/
+
+.DS_Store
